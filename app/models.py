@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_security import UserMixin, RoleMixin, SQLAlchemyUserDatastore, Security
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
-
+import bcrypt
 
 db = SQLAlchemy()
 
@@ -21,10 +21,20 @@ class Role(db.Model, RoleMixin):
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True)
-    password = db.Column(db.String(255))
-    active = db.Column(db.Boolean())
-    confirmed_at = db.Column(db.DateTime())
+    name = db.Column(db.String(255), unique=False, nullable=False)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=True)
+    hash = db.Column(db.String(255), nullable=True)
+    created_on = db.Column(db.DateTime, nullable=False)
+    verified = db.Column(db.Boolean, default=False, nullable=True)
+    is_admin = db.Column(db.Boolean, default=False, nullable=True)
+
+    def set_password(self, password):
+        self.hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    def check_password(self, password):
+        return bcrypt.checkpw(password.encode('utf-8'), self.hash.encode('utf-8'))
+
     roles = db.relationship(
         Role, secondary=roles_users, backref=db.backref("users", lazy="dynamic")
     )

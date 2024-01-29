@@ -7,20 +7,20 @@ from sqlalchemy.orm.exc import NoResultFound
 from .models import db, User, OAuth
 
 
-blueprint = make_google_blueprint(
+google_blueprint = make_google_blueprint(
     scope=["profile", "email"],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user),
 )
 
 
 # create/login local user on successful OAuth login
-@oauth_authorized.connect_via(blueprint)
-def google_logged_in(blueprint, token):
+@oauth_authorized.connect_via(google_blueprint)
+def google_logged_in(google_blueprint, token):
     if not token:
         flash("Failed to log in.", category="error")
         return False
 
-    resp = blueprint.session.get("/oauth2/v1/userinfo")
+    resp = google_blueprint.session.get("/oauth2/v1/userinfo")
     if not resp.ok:
         msg = "Failed to fetch user info."
         flash(msg, category="error")
@@ -30,11 +30,11 @@ def google_logged_in(blueprint, token):
     user_id = info["id"]
 
     # Find this OAuth token in the database, or create it
-    query = OAuth.query.filter_by(provider=blueprint.name, provider_user_id=user_id)
+    query = OAuth.query.filter_by(provider=google_blueprint.name, provider_user_id=user_id)
     try:
         oauth = query.one()
     except NoResultFound:
-        oauth = OAuth(provider=blueprint.name, provider_user_id=user_id, token=token)
+        oauth = OAuth(provider=google_blueprint.name, provider_user_id=user_id, token=token)
 
     if oauth.user:
         login_user(oauth.user)
@@ -57,9 +57,9 @@ def google_logged_in(blueprint, token):
 
 
 # notify on OAuth provider error
-@oauth_error.connect_via(blueprint)
-def google_error(blueprint, message, response):
+@oauth_error.connect_via(google_blueprint)
+def google_error(google_blueprint, message, response):
     msg = "OAuth error from {name}! message={message} response={response}".format(
-        name=blueprint.name, message=message, response=response
+        name=google_blueprint.name, message=message, response=response
     )
     flash(msg, category="error")
